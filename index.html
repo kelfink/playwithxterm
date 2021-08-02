@@ -1,0 +1,120 @@
+<!doctype html>
+  <html>
+    <head>
+      <link rel="stylesheet" href="node_modules/xterm/css/xterm.css" />
+      <script src="node_modules/xterm/lib/xterm.js"></script>
+      <script src="node_modules/xterm-addon-web-links/lib/xterm-addon-web-links.js"></script>
+    </head>
+    <body>
+      <div id="terminal"></div>
+      <script>
+        
+
+
+        function getXkcd(number) {
+            function xkcdListener () {
+                jsonResp = JSON.parse(this.response);
+                console.log(jsonResp);
+                target = document.getElementById("resultImg");
+                titleTarget = document.getElementById("resultTitle");
+                target.src = jsonResp.img;
+                target.title = jsonResp.alt;
+                titleTarget.innerHTML = jsonResp.safe_title;
+                document.term.write(jsonResp.title);
+            }
+            function xkcdFail (evt) {
+                document.term.write(evt);
+                console.log("fail ", evt);
+            }
+
+            function xkcdProgress (evt) {
+                document.term.write(evt);
+                console.log("progress" + evt);
+            }
+
+            // console.log(`http://xkcd.com/$ {number}/info.0.json`);
+            var oReq = new XMLHttpRequest();
+            oReq.addEventListener("load", xkcdListener);
+            oReq.addEventListener("progress", xkcdProgress);
+            oReq.addEventListener("error", xkcdFail);
+            oReq.open("GET", `http://localhost:3000/${number}`);
+            //oReq.open("GET", `http://xkcd.com/${number}/info.0.json`);
+            oReq.send();
+        }
+        var term = new Terminal();
+        document.term = term;
+        //var weblinksAddon = new WebLinksAddon();
+        // term.loadAddon();
+        term.open(document.getElementById('terminal'));
+        term.execCommand = (command) => {
+            if (command) {
+                const cmd = command.split(' ');
+                const program = cmd.shift();
+                if (program == 'xkcd') {
+                    term.write("go xkcd.\r\n");
+                    getXkcd(cmd[1]);
+                }
+                else if (program === 'echo') {
+                    
+                    const remainder = cmd.join(' ');
+                    
+                    console.log(remainder + "\r\n");
+                    term.write(remainder + "\r\n");
+                }
+                else {
+                    term.write("\r");
+                    term.prompt();
+                }
+            }
+            term.write('web shell $ ');
+        };
+        term.prompt = () => {
+            term.write('web shell $ ');
+        }
+
+        term.prompt();
+        var curr_line = "";
+        var entries = [];
+        var last_entry_index = 0;
+
+        term.onData((ev) => {
+            console.log("ok", ev.charCodeAt(0));
+            if (ev === '\r') { 
+                term.write('\r\n');
+                term.execCommand(curr_line);
+                entries.push(curr_line);
+                last_entry_index = entries.length - 1;
+                curr_line = "";
+            } else if (ev.charCodeAt(0) === 27) {
+                const curr_length = curr_line.length;
+                curr_line = entries[last_entry_index--];
+                console.log("last_entry_index == " + last_entry_index);
+                term.write('\rweb shell $ ' + curr_line + " ".repeat(curr_length) + '\b'.repeat(curr_length));
+            } else if (ev.charCodeAt(0) === 127) { 
+                curr_line = curr_line.slice(0, curr_line.length -1);
+                term.write('\b');
+            } else {
+                console.log("onData", ev);
+                curr_line += ev;
+                term.write(ev);
+            }
+        });
+      </script>
+      <br/>
+      The image
+      <img class="theImage" id="resultImg" src=""/>
+      <div class="theTitle" id="resultTitle">nothing so far</div>
+    </body>
+    </body>
+    <style>
+        .theImage {
+            display: block;
+            margin-left: auto;
+            margin-right: auto 
+        }
+        .theTitle {
+            color: #333300;
+            text-align: center;
+        }
+    </style>
+  </html>
